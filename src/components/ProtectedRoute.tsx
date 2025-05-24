@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, role }) => {
-  const { user, isLoading } = useAuth();
+  const { user, profile, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -18,11 +18,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, role }) => {
     );
   }
 
-  if (!user) {
+  if (!user || !profile) {
     return <Navigate to="/login" replace />;
   }
 
-  if (role && user.role !== role) {
+  if (role && profile.role !== role) {
     return <Navigate to="/login" replace />;
   }
 

@@ -6,39 +6,73 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Heart, LogOut, Thermometer, Weight, Ruler, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 const StudentDashboard = () => {
-  const { user, logout } = useAuth();
+  const { profile, logout } = useAuth();
   const { toast } = useToast();
   
   const [healthData, setHealthData] = useState({
-    temperature: '',
-    weight: '',
-    height: '',
-    complaint: ''
+    suhu: '',
+    berat_badan: '',
+    tinggi_badan: '',
+    keluhan: '',
+    merasa: ''
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would save to a database
-    toast({
-      title: "Data Berhasil Disimpan! 🎉",
-      description: "Guru akan melihat data kesehatan kamu hari ini",
-    });
     
-    // Reset form
-    setHealthData({
-      temperature: '',
-      weight: '',
-      height: '',
-      complaint: ''
-    });
+    try {
+      const { data, error } = await supabase
+        .from('kesehatan_siswa')
+        .insert([{
+          user_id: profile?.id,
+          suhu: healthData.suhu,
+          berat_badan: healthData.berat_badan,
+          tinggi_badan: healthData.tinggi_badan,
+          keluhan: healthData.keluhan || 'Tidak ada keluhan',
+          merasa: healthData.merasa
+        }]);
+
+      if (error) {
+        console.error('Error saving health data:', error);
+        toast({
+          title: "Gagal Menyimpan Data 😞",
+          description: "Terjadi kesalahan saat menyimpan data kesehatan",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Data Berhasil Disimpan! 🎉",
+        description: "Guru akan melihat data kesehatan kamu hari ini",
+      });
+      
+      // Reset form
+      setHealthData({
+        suhu: '',
+        berat_badan: '',
+        tinggi_badan: '',
+        keluhan: '',
+        merasa: ''
+      });
+    } catch (error) {
+      console.error('Error saving health data:', error);
+      toast({
+        title: "Terjadi Kesalahan",
+        description: "Silakan coba lagi dalam beberapa saat",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     toast({
       title: "Logout Berhasil 👋",
       description: "Sampai jumpa lagi!",
@@ -56,8 +90,8 @@ const StudentDashboard = () => {
                 <Heart className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-blue-600">Halo, {user?.name}! 👋</h1>
-                <p className="text-sm text-gray-600">Kelas {user?.class} - Dashboard Siswa</p>
+                <h1 className="text-2xl font-bold text-blue-600">Halo, {profile?.nama}! 👋</h1>
+                <p className="text-sm text-gray-600">Kelas {profile?.kelas} - Dashboard Siswa</p>
               </div>
             </div>
             <Button 
@@ -103,50 +137,50 @@ const StudentDashboard = () => {
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid md:grid-cols-3 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="temperature" className="text-lg font-semibold flex items-center">
+                    <Label htmlFor="suhu" className="text-lg font-semibold flex items-center">
                       <Thermometer className="w-5 h-5 mr-2 text-red-500" />
                       Suhu Tubuh (°C)
                     </Label>
                     <Input
-                      id="temperature"
+                      id="suhu"
                       type="number"
                       step="0.1"
                       placeholder="36.5"
-                      value={healthData.temperature}
-                      onChange={(e) => setHealthData({...healthData, temperature: e.target.value})}
+                      value={healthData.suhu}
+                      onChange={(e) => setHealthData({...healthData, suhu: e.target.value})}
                       required
                       className="text-lg border-2 focus:border-green-400"
                     />
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="weight" className="text-lg font-semibold flex items-center">
+                    <Label htmlFor="berat_badan" className="text-lg font-semibold flex items-center">
                       <Weight className="w-5 h-5 mr-2 text-blue-500" />
                       Berat Badan (kg)
                     </Label>
                     <Input
-                      id="weight"
+                      id="berat_badan"
                       type="number"
                       step="0.1"
                       placeholder="30.5"
-                      value={healthData.weight}
-                      onChange={(e) => setHealthData({...healthData, weight: e.target.value})}
+                      value={healthData.berat_badan}
+                      onChange={(e) => setHealthData({...healthData, berat_badan: e.target.value})}
                       required
                       className="text-lg border-2 focus:border-green-400"
                     />
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="height" className="text-lg font-semibold flex items-center">
+                    <Label htmlFor="tinggi_badan" className="text-lg font-semibold flex items-center">
                       <Ruler className="w-5 h-5 mr-2 text-purple-500" />
                       Tinggi Badan (cm)
                     </Label>
                     <Input
-                      id="height"
+                      id="tinggi_badan"
                       type="number"
                       placeholder="120"
-                      value={healthData.height}
-                      onChange={(e) => setHealthData({...healthData, height: e.target.value})}
+                      value={healthData.tinggi_badan}
+                      onChange={(e) => setHealthData({...healthData, tinggi_badan: e.target.value})}
                       required
                       className="text-lg border-2 focus:border-green-400"
                     />
@@ -154,16 +188,33 @@ const StudentDashboard = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="complaint" className="text-lg font-semibold flex items-center">
+                  <Label htmlFor="merasa" className="text-lg font-semibold">
+                    Bagaimana perasaan kamu hari ini?
+                  </Label>
+                  <Select value={healthData.merasa} onValueChange={(value) => setHealthData({...healthData, merasa: value})} required>
+                    <SelectTrigger className="text-lg border-2 focus:border-green-400">
+                      <SelectValue placeholder="Pilih perasaan kamu" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sangat_sehat">😄 Sangat Sehat dan Ceria</SelectItem>
+                      <SelectItem value="sehat">😊 Sehat</SelectItem>
+                      <SelectItem value="biasa_saja">😐 Biasa Saja</SelectItem>
+                      <SelectItem value="kurang_sehat">😟 Kurang Sehat</SelectItem>
+                      <SelectItem value="sakit">😷 Sakit</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="keluhan" className="text-lg font-semibold flex items-center">
                     <AlertCircle className="w-5 h-5 mr-2 text-orange-500" />
                     Keluhan Kesehatan (jika ada)
                   </Label>
                   <Textarea
-                    id="complaint"
-                    placeholder="Ceritakan jika ada yang tidak enak badan, misalnya: pusing, mual, batuk, pilek, sakit perut, dll. Kalau tidak ada keluhan, tulis 'Tidak ada keluhan' ya!"
-                    value={healthData.complaint}
-                    onChange={(e) => setHealthData({...healthData, complaint: e.target.value})}
-                    required
+                    id="keluhan"
+                    placeholder="Ceritakan jika ada yang tidak enak badan, misalnya: pusing, mual, batuk, pilek, sakit perut, dll. Kalau tidak ada keluhan, kosongkan saja ya!"
+                    value={healthData.keluhan}
+                    onChange={(e) => setHealthData({...healthData, keluhan: e.target.value})}
                     className="text-lg border-2 focus:border-green-400 min-h-[120px]"
                   />
                 </div>

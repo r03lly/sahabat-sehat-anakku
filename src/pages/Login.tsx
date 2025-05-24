@@ -14,7 +14,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, profile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -30,16 +30,18 @@ const Login = () => {
           description: "Selamat datang di sistem kesehatan anak",
         });
         
-        // Redirect based on role
-        if (email.includes('student') || email.includes('siswa')) {
-          navigate('/student');
-        } else if (email.includes('teacher') || email.includes('guru')) {
-          navigate('/teacher');
-        } else if (email.includes('admin')) {
-          navigate('/admin');
-        } else {
-          navigate('/');
-        }
+        // Wait a bit for profile to load, then redirect based on role
+        setTimeout(() => {
+          if (profile?.role === 'student') {
+            navigate('/student');
+          } else if (profile?.role === 'teacher') {
+            navigate('/teacher');
+          } else if (profile?.role === 'admin') {
+            navigate('/admin');
+          } else {
+            navigate('/');
+          }
+        }, 1000);
       } else {
         toast({
           title: "Login Gagal 😞",
@@ -56,11 +58,6 @@ const Login = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleDemoLogin = (demoEmail: string, demoPassword: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPassword);
   };
 
   return (
@@ -80,7 +77,7 @@ const Login = () => {
           <CardHeader>
             <CardTitle className="text-center text-green-600">Masuk ke Akun Anda</CardTitle>
             <CardDescription className="text-center">
-              Pilih peran Anda dan masukkan data login
+              Masukkan email dan password untuk login
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -136,37 +133,6 @@ const Login = () => {
             </form>
           </CardContent>
         </Card>
-
-        {/* Demo Accounts */}
-        <div className="mt-8">
-          <p className="text-center text-gray-600 mb-4 font-semibold">Coba Akun Demo:</p>
-          <div className="grid grid-cols-3 gap-2">
-            <Button
-              onClick={() => handleDemoLogin('siswa@demo.com', 'siswa123')}
-              variant="outline"
-              size="sm"
-              className="text-xs border-blue-300 text-blue-600 hover:bg-blue-50"
-            >
-              👦 Siswa
-            </Button>
-            <Button
-              onClick={() => handleDemoLogin('guru@demo.com', 'guru123')}
-              variant="outline"
-              size="sm"
-              className="text-xs border-green-300 text-green-600 hover:bg-green-50"
-            >
-              👩‍🏫 Guru
-            </Button>
-            <Button
-              onClick={() => handleDemoLogin('admin@demo.com', 'admin123')}
-              variant="outline"
-              size="sm"
-              className="text-xs border-purple-300 text-purple-600 hover:bg-purple-50"
-            >
-              👩‍💼 Admin
-            </Button>
-          </div>
-        </div>
 
         {/* Back to Home */}
         <div className="text-center mt-6">

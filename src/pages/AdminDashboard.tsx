@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,95 +7,126 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Heart, LogOut, Users, UserPlus, Edit, Trash2, School, BarChart3 } from 'lucide-react';
+import { Heart, LogOut, Users, UserPlus, School, BarChart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+
+interface UserProfile {
+  id: string;
+  email: string;
+  nama: string;
+  role: string;
+  kelas?: string;
+  created_at: string;
+}
 
 const AdminDashboard = () => {
-  const { user, logout } = useAuth();
+  const { profile, logout, signup } = useAuth();
   const { toast } = useToast();
   
-  // Mock data
-  const [users, setUsers] = useState([
-    { id: 1, name: 'Budi Santoso', email: 'budi@demo.com', role: 'student', class: '6A' },
-    { id: 2, name: 'Sari Dewi', email: 'sari@demo.com', role: 'student', class: '6A' },
-    { id: 3, name: 'Ahmad Rizki', email: 'ahmad@demo.com', role: 'student', class: '6B' },
-    { id: 4, name: 'Ibu Sari', email: 'guru6a@demo.com', role: 'teacher', class: '6A' },
-    { id: 5, name: 'Pak Budi', email: 'guru6b@demo.com', role: 'teacher', class: '6B' },
-  ]);
-
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [newUser, setNewUser] = useState({
-    name: '',
     email: '',
+    password: '',
+    nama: '',
     role: '',
-    class: ''
+    kelas: ''
   });
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<any>(null);
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
-  const classes = ['1A', '1B', '2A', '2B', '3A', '3B', '4A', '4B', '5A', '5B', '6A', '6B'];
+  const fetchUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-  const handleSubmitUser = () => {
-    if (!newUser.name || !newUser.email || !newUser.role) {
+      if (error) {
+        console.error('Error fetching users:', error);
+        return;
+      }
+
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newUser.email || !newUser.password || !newUser.nama || !newUser.role) {
       toast({
         title: "Data Tidak Lengkap",
-        description: "Mohon lengkapi semua field yang diperlukan",
+        description: "Mohon isi semua field yang diperlukan",
         variant: "destructive",
       });
       return;
     }
 
-    if (editingUser) {
-      // Update existing user
-      setUsers(prev => prev.map(u => 
-        u.id === editingUser.id 
-          ? { ...u, ...newUser }
-          : u
-      ));
+    if (newUser.role !== 'admin' && !newUser.kelas) {
       toast({
-        title: "Akun Berhasil Diupdate! ✅",
-        description: `Data ${newUser.name} telah diperbarui`,
+        title: "Kelas Diperlukan",
+        description: "Mohon pilih kelas untuk guru dan siswa",
+        variant: "destructive",
       });
-    } else {
-      // Add new user
-      const newId = Math.max(...users.map(u => u.id)) + 1;
-      setUsers(prev => [...prev, { id: newId, ...newUser }]);
-      toast({
-        title: "Akun Berhasil Dibuat! 🎉",
-        description: `Akun ${newUser.name} telah ditambahkan`,
-      });
+      return;
     }
 
-    // Reset form
-    setNewUser({ name: '', email: '', role: '', class: '' });
-    setEditingUser(null);
-    setIsDialogOpen(false);
+    try {
+      const success = await signup(
+        newUser.email,
+        newUser.password,
+        newUser.nama,
+        newUser.role,
+        newUser.role === 'admin' ? undefined : newUser.kelas
+      );
+
+      if (success) {
+        toast({
+          title: "Akun Berhasil Dibuat! 🎉",
+          description: `Akun ${newUser.role} baru telah dibuat dan dapat langsung digunakan`,
+        });
+        
+        // Reset form
+        setNewUser({
+          email: '',
+          password: '',
+          nama: '',
+          role: '',
+          kelas: ''
+        });
+        
+        // Refresh users list
+        setTimeout(() => {
+          fetchUsers();
+        }, 1000);
+      } else {
+        toast({
+          title: "Gagal Membuat Akun",
+          description: "Terjadi kesalahan saat membuat akun baru",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error creating user:', error);
+      toast({
+        title: "Terjadi Kesalahan",
+        description: "Silakan coba lagi dalam beberapa saat",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleEditUser = (user: any) => {
-    setEditingUser(user);
-    setNewUser({
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      class: user.class || ''
-    });
-    setIsDialogOpen(true);
-  };
-
-  const handleDeleteUser = (userId: number) => {
-    const userToDelete = users.find(u => u.id === userId);
-    setUsers(prev => prev.filter(u => u.id !== userId));
-    toast({
-      title: "Akun Berhasil Dihapus! 🗑️",
-      description: `Akun ${userToDelete?.name} telah dihapus`,
-    });
-  };
-
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     toast({
       title: "Logout Berhasil 👋",
       description: "Sampai jumpa lagi!",
@@ -115,9 +146,19 @@ const AdminDashboard = () => {
     }
   };
 
-  const studentCount = users.filter(u => u.role === 'student').length;
-  const teacherCount = users.filter(u => u.role === 'teacher').length;
-  const adminCount = users.filter(u => u.role === 'admin').length;
+  const kelasOptions = ['6A', '6B', '6C', '5A', '5B', '5C', '4A', '4B', '4C', '3A', '3B', '3C', '2A', '2B', '2C', '1A', '1B', '1C'];
+
+  const totalStudents = users.filter(u => u.role === 'student').length;
+  const totalTeachers = users.filter(u => u.role === 'teacher').length;
+  const totalAdmins = users.filter(u => u.role === 'admin').length;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50">
@@ -130,8 +171,8 @@ const AdminDashboard = () => {
                 <Heart className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-purple-600">Dashboard Admin - {user?.name}</h1>
-                <p className="text-sm text-gray-600">Sistem Manajemen Kesehatan Sekolah</p>
+                <h1 className="text-2xl font-bold text-purple-600">Dashboard Admin - {profile?.nama}</h1>
+                <p className="text-sm text-gray-600">Sistem Kesehatan Anak SD</p>
               </div>
             </div>
             <Button 
@@ -156,7 +197,7 @@ const AdminDashboard = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-blue-600 font-semibold">Total Siswa</p>
-                    <p className="text-3xl font-bold text-blue-800">{studentCount}</p>
+                    <p className="text-3xl font-bold text-blue-800">{totalStudents}</p>
                   </div>
                   <Users className="w-12 h-12 text-blue-500" />
                 </div>
@@ -168,7 +209,7 @@ const AdminDashboard = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-green-600 font-semibold">Total Guru</p>
-                    <p className="text-3xl font-bold text-green-800">{teacherCount}</p>
+                    <p className="text-3xl font-bold text-green-800">{totalTeachers}</p>
                   </div>
                   <School className="w-12 h-12 text-green-500" />
                 </div>
@@ -180,303 +221,186 @@ const AdminDashboard = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-purple-600 font-semibold">Total Admin</p>
-                    <p className="text-3xl font-bold text-purple-800">{adminCount}</p>
+                    <p className="text-3xl font-bold text-purple-800">{totalAdmins}</p>
                   </div>
-                  <Heart className="w-12 h-12 text-purple-500" />
+                  <UserPlus className="w-12 h-12 text-purple-500" />
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-yellow-50 border-2 border-yellow-200">
+            <Card className="bg-orange-50 border-2 border-orange-200">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-yellow-600 font-semibold">Total Kelas</p>
-                    <p className="text-3xl font-bold text-yellow-800">{classes.length}</p>
+                    <p className="text-orange-600 font-semibold">Total Pengguna</p>
+                    <p className="text-3xl font-bold text-orange-800">{users.length}</p>
                   </div>
-                  <BarChart3 className="w-12 h-12 text-yellow-500" />
+                  <BarChart className="w-12 h-12 text-orange-500" />
                 </div>
               </CardContent>
             </Card>
           </div>
 
-          {/* User Management */}
-          <Card className="kid-friendly-shadow border-2 border-purple-100">
-            <CardHeader className="bg-purple-50">
-              <div className="flex items-center justify-between">
-                <div>
+          <Tabs defaultValue="create-user" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="create-user">Buat Akun Baru</TabsTrigger>
+              <TabsTrigger value="manage-users">Kelola Pengguna</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="create-user">
+              <Card className="border-2 border-purple-100">
+                <CardHeader className="bg-purple-50">
                   <CardTitle className="text-purple-700 flex items-center">
-                    <Users className="w-6 h-6 mr-2" />
-                    Manajemen Pengguna
+                    <UserPlus className="w-6 h-6 mr-2" />
+                    Buat Akun Guru dan Siswa Baru
                   </CardTitle>
                   <CardDescription>
-                    Kelola akun siswa, guru, dan admin
+                    Buat akun baru yang dapat langsung digunakan untuk login
                   </CardDescription>
-                </div>
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button 
-                      className="bg-purple-500 hover:bg-purple-600"
-                      onClick={() => {
-                        setEditingUser(null);
-                        setNewUser({ name: '', email: '', role: '', class: '' });
-                      }}
-                    >
-                      <UserPlus className="w-4 h-4 mr-2" />
-                      Tambah Akun
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
-                    <DialogHeader>
-                      <DialogTitle>
-                        {editingUser ? 'Edit Akun' : 'Tambah Akun Baru'}
-                      </DialogTitle>
-                      <DialogDescription>
-                        {editingUser ? 'Perbarui data akun pengguna' : 'Buat akun baru untuk siswa, guru, atau admin'}
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
+                </CardHeader>
+                <CardContent className="p-6">
+                  <form onSubmit={handleCreateUser} className="space-y-6">
+                    <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="name">Nama Lengkap</Label>
+                        <Label htmlFor="nama">Nama Lengkap</Label>
                         <Input
-                          id="name"
-                          value={newUser.name}
-                          onChange={(e) => setNewUser({...newUser, name: e.target.value})}
+                          id="nama"
+                          type="text"
                           placeholder="Masukkan nama lengkap"
+                          value={newUser.nama}
+                          onChange={(e) => setNewUser({...newUser, nama: e.target.value})}
+                          required
+                          className="border-2 focus:border-purple-400"
                         />
                       </div>
+
                       <div className="space-y-2">
                         <Label htmlFor="email">Email</Label>
                         <Input
                           id="email"
                           type="email"
+                          placeholder="Masukkan email"
                           value={newUser.email}
                           onChange={(e) => setNewUser({...newUser, email: e.target.value})}
-                          placeholder="Masukkan email"
+                          required
+                          className="border-2 focus:border-purple-400"
                         />
                       </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="password">Password</Label>
+                        <Input
+                          id="password"
+                          type="password"
+                          placeholder="Masukkan password"
+                          value={newUser.password}
+                          onChange={(e) => setNewUser({...newUser, password: e.target.value})}
+                          required
+                          className="border-2 focus:border-purple-400"
+                        />
+                      </div>
+
                       <div className="space-y-2">
                         <Label htmlFor="role">Peran</Label>
-                        <Select value={newUser.role} onValueChange={(value) => setNewUser({...newUser, role: value})}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Pilih peran" />
+                        <Select 
+                          value={newUser.role} 
+                          onValueChange={(value) => setNewUser({...newUser, role: value, kelas: value === 'admin' ? '' : newUser.kelas})}
+                          required
+                        >
+                          <SelectTrigger className="border-2 focus:border-purple-400">
+                            <SelectValue placeholder="Pilih peran pengguna" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="student">Siswa</SelectItem>
-                            <SelectItem value="teacher">Guru</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="student">👦 Siswa</SelectItem>
+                            <SelectItem value="teacher">👩‍🏫 Guru</SelectItem>
+                            <SelectItem value="admin">👩‍💼 Admin</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
-                      {(newUser.role === 'student' || newUser.role === 'teacher') && (
-                        <div className="space-y-2">
-                          <Label htmlFor="class">Kelas</Label>
-                          <Select value={newUser.class} onValueChange={(value) => setNewUser({...newUser, class: value})}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Pilih kelas" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {classes.map(cls => (
-                                <SelectItem key={cls} value={cls}>{cls}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
                     </div>
-                    <DialogFooter>
-                      <Button onClick={handleSubmitUser}>
-                        {editingUser ? 'Update Akun' : 'Buat Akun'}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <Tabs defaultValue="all" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="all">Semua</TabsTrigger>
-                  <TabsTrigger value="student">Siswa</TabsTrigger>
-                  <TabsTrigger value="teacher">Guru</TabsTrigger>
-                  <TabsTrigger value="admin">Admin</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="all" className="p-6">
+
+                    {newUser.role && newUser.role !== 'admin' && (
+                      <div className="space-y-2">
+                        <Label htmlFor="kelas">Kelas</Label>
+                        <Select 
+                          value={newUser.kelas} 
+                          onValueChange={(value) => setNewUser({...newUser, kelas: value})}
+                          required
+                        >
+                          <SelectTrigger className="border-2 focus:border-purple-400">
+                            <SelectValue placeholder="Pilih kelas" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {kelasOptions.map((kelas) => (
+                              <SelectItem key={kelas} value={kelas}>Kelas {kelas}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    <Button
+                      type="submit"
+                      className="w-full bg-purple-500 hover:bg-purple-600 text-white py-3 rounded-lg text-lg font-semibold"
+                    >
+                      🎯 Buat Akun Baru
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="manage-users">
+              <Card className="border-2 border-green-100">
+                <CardHeader className="bg-green-50">
+                  <CardTitle className="text-green-700 flex items-center">
+                    <Users className="w-6 h-6 mr-2" />
+                    Kelola Semua Pengguna
+                  </CardTitle>
+                  <CardDescription>
+                    Daftar semua pengguna dalam sistem
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-6">
                   <div className="space-y-4">
                     {users.map((user) => (
-                      <Card key={user.id} className="border-2 border-gray-100">
+                      <Card key={user.id} className="border border-gray-200">
                         <CardContent className="p-4">
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4">
-                              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                                <span className="text-white font-bold">
-                                  {user.name.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                              <div>
-                                <h3 className="font-semibold text-lg">{user.name}</h3>
-                                <p className="text-gray-600">{user.email}</p>
-                                {user.class && (
-                                  <p className="text-sm text-gray-500">Kelas: {user.class}</p>
-                                )}
-                              </div>
+                            <div>
+                              <h4 className="font-semibold text-lg">{user.nama}</h4>
+                              <p className="text-gray-600">{user.email}</p>
+                              {user.kelas && (
+                                <p className="text-sm text-gray-500">Kelas: {user.kelas}</p>
+                              )}
+                              <p className="text-xs text-gray-400">
+                                Dibuat: {new Date(user.created_at).toLocaleDateString('id-ID')}
+                              </p>
                             </div>
-                            <div className="flex items-center space-x-3">
+                            <div className="text-right">
                               {getRoleBadge(user.role)}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleEditUser(user)}
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleDeleteUser(user.id)}
-                                className="text-red-600 hover:text-red-800"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
                             </div>
                           </div>
                         </CardContent>
                       </Card>
                     ))}
+                    
+                    {users.length === 0 && (
+                      <div className="text-center py-12">
+                        <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                        <h3 className="text-xl font-semibold text-gray-600 mb-2">Belum Ada Pengguna</h3>
+                        <p className="text-gray-500">
+                          Belum ada pengguna yang terdaftar dalam sistem
+                        </p>
+                      </div>
+                    )}
                   </div>
-                </TabsContent>
-
-                <TabsContent value="student" className="p-6">
-                  <div className="space-y-4">
-                    {users.filter(u => u.role === 'student').map((user) => (
-                      <Card key={user.id} className="border-2 border-blue-100">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4">
-                              <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
-                                <span className="text-white font-bold">
-                                  {user.name.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                              <div>
-                                <h3 className="font-semibold text-lg">{user.name}</h3>
-                                <p className="text-gray-600">{user.email}</p>
-                                <p className="text-sm text-gray-500">Kelas: {user.class}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-3">
-                              {getRoleBadge(user.role)}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleEditUser(user)}
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleDeleteUser(user.id)}
-                                className="text-red-600 hover:text-red-800"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="teacher" className="p-6">
-                  <div className="space-y-4">
-                    {users.filter(u => u.role === 'teacher').map((user) => (
-                      <Card key={user.id} className="border-2 border-green-100">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4">
-                              <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
-                                <span className="text-white font-bold">
-                                  {user.name.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                              <div>
-                                <h3 className="font-semibold text-lg">{user.name}</h3>
-                                <p className="text-gray-600">{user.email}</p>
-                                <p className="text-sm text-gray-500">Wali Kelas: {user.class}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-3">
-                              {getRoleBadge(user.role)}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleEditUser(user)}
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleDeleteUser(user.id)}
-                                className="text-red-600 hover:text-red-800"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="admin" className="p-6">
-                  <div className="space-y-4">
-                    {users.filter(u => u.role === 'admin').map((user) => (
-                      <Card key={user.id} className="border-2 border-purple-100">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-4">
-                              <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
-                                <span className="text-white font-bold">
-                                  {user.name.charAt(0).toUpperCase()}
-                                </span>
-                              </div>
-                              <div>
-                                <h3 className="font-semibold text-lg">{user.name}</h3>
-                                <p className="text-gray-600">{user.email}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center space-x-3">
-                              {getRoleBadge(user.role)}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleEditUser(user)}
-                              >
-                                <Edit className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleDeleteUser(user.id)}
-                                className="text-red-600 hover:text-red-800"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
     </div>
