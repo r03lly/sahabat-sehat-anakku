@@ -126,65 +126,6 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Demo Accounts Section */}
-      <section className="py-16 px-4 bg-yellow-50">
-        <div className="container mx-auto">
-          <h3 className="text-3xl font-bold text-center text-gray-800 mb-12">
-            Coba Demo Gratis! 🎮
-          </h3>
-          
-          <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
-            <Card className="bg-blue-50 border-blue-200">
-              <CardHeader>
-                <CardTitle className="text-blue-600 text-center">Demo Siswa</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center">
-                <p className="mb-2"><strong>Email:</strong> siswa@demo.com</p>
-                <p className="mb-4"><strong>Password:</strong> siswa123</p>
-                <Button 
-                  onClick={() => navigate('/login')}
-                  className="bg-blue-500 hover:bg-blue-600 w-full"
-                >
-                  Coba Sekarang
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-green-50 border-green-200">
-              <CardHeader>
-                <CardTitle className="text-green-600 text-center">Demo Guru</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center">
-                <p className="mb-2"><strong>Email:</strong> guru@demo.com</p>
-                <p className="mb-4"><strong>Password:</strong> guru123</p>
-                <Button 
-                  onClick={() => navigate('/login')}
-                  className="bg-green-500 hover:bg-green-600 w-full"
-                >
-                  Coba Sekarang
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-purple-50 border-purple-200">
-              <CardHeader>
-                <CardTitle className="text-purple-600 text-center">Demo Admin</CardTitle>
-              </CardHeader>
-              <CardContent className="text-center">
-                <p className="mb-2"><strong>Email:</strong> admin@demo.com</p>
-                <p className="mb-4"><strong>Password:</strong> admin123</p>
-                <Button 
-                  onClick={() => navigate('/login')}
-                  className="bg-purple-500 hover:bg-purple-600 w-full"
-                >
-                  Coba Sekarang
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
       {/* Footer */}
       <footer className="bg-gray-800 text-white py-8 px-4">
         <div className="container mx-auto text-center">
